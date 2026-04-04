@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radio Player Configurator v2</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg-secondary: #f5f5f3;
+    --bg-tertiary: #efefed;
+    --text: #111111;
+    --text-secondary: #666666;
+    --border: rgba(0,0,0,0.12);
+    --border-secondary: rgba(0,0,0,0.22);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', monospace;
+    --accent: #111111;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --bg-secondary: #242424;
+      --bg-tertiary: #2e2e2e;
+      --text: #f0f0f0;
+      --text-secondary: #999999;
+      --border: rgba(255,255,255,0.1);
+      --border-secondary: rgba(255,255,255,0.2);
+      --accent: #f0f0f0;
+    }
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-tertiary);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem 4rem;
+  }
+
+  .container {
+    max-width: 700px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .page-header { display: flex; flex-direction: column; gap: 4px; }
+  .page-header h1 { font-size: 18px; font-weight: 500; }
+  .page-header p { font-size: 13px; color: var(--text-secondary); }
+
+  .card {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+  }
+
+  /* ── PREVIEW ── */
+  .preview-area {
+    background: var(--bg-secondary);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 130px;
+  }
+
+  .player-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    font-family: sans-serif;
+    transition: all 0.2s;
+  }
+
+  .play-btn {
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; border: 1.5px solid;
+    transition: opacity 0.15s; flex-shrink: 0;
+    position: relative;
+  }
+  .play-btn:hover { opacity: 0.75; }
+  .play-btn svg { display: block; position: relative; z-index: 1; }
+
+  /* pulse ring for animation feature */
+  .pulse-ring {
+    display: none;
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    opacity: 0;
+    animation: pulse 1.8s ease-out infinite;
+  }
+  @keyframes pulse {
+    0%   { transform: scale(0.85); opacity: 0.6; }
+    100% { transform: scale(1.35); opacity: 0; }
+  }
+  .playing .pulse-ring { display: block; }
+
+  .station-label { font-weight: 500; line-height: 1.3; }
+  .station-sub { margin-top: 3px; display: flex; align-items: center; gap: 5px; }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  .now-playing-text {
+    font-size: 11px;
+    margin-top: 4px;
+    opacity: 0.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+  }
+
+  .schedule-badge {
+    font-size: 11px;
+    margin-top: 4px;
+    opacity: 0.65;
+  }
+
+  .volume-row {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  }
+  .vol-icon { width: 14px; height: 14px; flex-shrink: 0; opacity: 0.5; }
+  .vol-slider { width: 72px; accent-color: currentColor; }
+
+  /* ── SECTION LABELS ── */
+  .section-label {
+    font-size: 11px; font-weight: 500; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.07em;
+    padding-bottom: 8px; border-bottom: 0.5px solid var(--border);
+    margin-bottom: 2px; margin-top: 4px;
+  }
+
+  .controls-grid { display: flex; flex-direction: column; gap: 0.85rem; }
+
+  .row {
+    display: grid;
+    grid-template-columns: 160px 1fr 58px;
+    align-items: center;
+    gap: 12px;
+  }
+  .row label { font-size: 13px; color: var(--text-secondary); }
+  .val {
+    font-size: 12px; color: var(--text-secondary);
+    text-align: right; font-family: var(--font-mono);
+    white-space: nowrap;
+  }
+
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  input[type=color] {
+    width: 36px; height: 28px;
+    border: 0.5px solid var(--border-secondary);
+    border-radius: 6px; cursor: pointer;
+    padding: 2px; background: var(--bg);
+  }
+  input[type=text] {
+    width: 100%; font-size: 13px; padding: 6px 9px;
+    border: 0.5px solid var(--border-secondary);
+    border-radius: 6px; background: var(--bg);
+    color: var(--text); font-family: var(--font-sans);
+  }
+  input[type=text]:focus { outline: none; border-color: var(--text-secondary); }
+
+  .divider { height: 0.5px; background: var(--border); margin: 4px 0; }
+
+  /* ── FEATURE TOGGLES ── */
+  .features-grid {
+    display: flex; flex-direction: column; gap: 0px;
+  }
+
+  .feature-row {
+    display: flex; align-items: flex-start;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 0.5px solid var(--border);
+    gap: 16px;
+  }
+  .feature-row:last-child { border-bottom: none; }
+
+  .feature-info { flex: 1; }
+  .feature-name { font-size: 13px; color: var(--text); font-weight: 500; }
+  .feature-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; line-height: 1.4; }
+
+  .feature-meta {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0;
+  }
+
+  .badge {
+    font-size: 10px; font-weight: 500; padding: 2px 7px;
+    border-radius: 20px; letter-spacing: 0.03em;
+  }
+  .badge-mvp { background: #e8f5e9; color: #2e7d32; }
+  .badge-dormant { background: #fff3e0; color: #e65100; }
+
+  /* toggle switch */
+  .toggle-wrap { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+  .toggle-label { font-size: 12px; color: var(--text-secondary); min-width: 26px; }
+
+  .toggle {
+    position: relative; width: 36px; height: 20px;
+    flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track {
+    position: absolute; inset: 0; cursor: pointer;
+    background: var(--border-secondary);
+    border-radius: 20px; transition: background 0.2s;
+  }
+  .toggle-track::after {
+    content: ''; position: absolute;
+    left: 3px; top: 3px;
+    width: 14px; height: 14px;
+    background: #fff; border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle input:checked + .toggle-track { background: #111; }
+  @media (prefers-color-scheme: dark) {
+    .toggle input:checked + .toggle-track { background: #f0f0f0; }
+    .toggle input:checked + .toggle-track::after { background: #1a1a1a; }
+  }
+  .toggle input:checked + .toggle-track::after { transform: translateX(16px); }
+
+  /* ── CODE ── */
+  .code-block {
+    background: var(--bg-secondary);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+  }
+  .code-header {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 10px;
+  }
+  .code-label {
+    font-size: 11px; font-weight: 500; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.07em;
+  }
+  pre {
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--text); white-space: pre-wrap;
+    word-break: break-all; line-height: 1.65;
+  }
+  .copy-btn {
+    font-size: 12px; padding: 5px 14px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border-secondary);
+    background: var(--bg); color: var(--text-secondary);
+    cursor: pointer; font-family: var(--font-sans);
+    transition: background 0.15s;
+  }
+  .copy-btn:hover { background: var(--bg-secondary); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="page-header">
+    <h1>Radio player configurator <span style="font-size:12px;color:var(--text-secondary);font-weight:400;">v2</span></h1>
+    <p>Configure your player, toggle features on/off, copy the embed code.</p>
+  </div>
+
+  <!-- PREVIEW -->
+  <div class="preview-area">
+    <div class="player-card" id="playerCard">
+      <button class="play-btn" id="playBtn" onclick="togglePlay()">
+        <span class="pulse-ring" id="pulseRing"></span>
+        <svg id="playIcon" viewBox="0 0 16 16"><path d="M4 2.5l10 5.5-10 5.5V2.5z"/></svg>
+      </button>
+      <div style="flex:1;min-width:0;">
+        <div class="station-label" id="labelEl">Your Radio Station</div>
+        <div class="station-sub">
+          <span class="live-dot" id="dotEl"></span>
+          <span id="subEl" style="font-size:12px;">Live stream</span>
+        </div>
+        <div class="now-playing-text" id="nowPlayingEl" style="display:none;">Now playing: Show title / Track name</div>
+        <div class="schedule-badge" id="scheduleEl" style="display:none;">Next: Evening Show — 20:00</div>
+      </div>
+      <div class="volume-row" id="volumeRow" style="display:none;">
+        <svg class="vol-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M2 5.5h2.5L8 2.5v11L4.5 10.5H2V5.5z"/>
+          <path d="M10 4.5a4.5 4.5 0 010 7" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+          <path d="M11.5 6a2.5 2.5 0 010 4" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        </svg>
+        <input class="vol-slider" type="range" min="0" max="100" value="80" id="volSlider" oninput="setVol(this.value)">
+      </div>
+    </div>
+  </div>
+
+  <audio id="audio"></audio>
+
+  <!-- CONTENT + SIZE + COLORS -->
+  <div class="card">
+    <div class="controls-grid">
+
+      <div class="section-label">Content</div>
+      <div class="row">
+        <label>Station name</label>
+        <input type="text" id="stationName" value="Your Radio Station" oninput="update()">
+        <span class="val"></span>
+      </div>
+      <div class="row">
+        <label>Subtitle</label>
+        <input type="text" id="subtitle" value="Live stream" oninput="update()">
+        <span class="val"></span>
+      </div>
+      <div class="row">
+        <label>Stream URL</label>
+        <input type="text" id="streamUrl" value="YOUR_STREAM_URL" oninput="update()">
+        <span class="val"></span>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-label">Size</div>
+      <div class="row">
+        <label>Player width</label>
+        <input type="range" min="240" max="640" value="400" step="1" id="width" oninput="update()">
+        <span class="val" id="widthVal">400px</span>
+      </div>
+      <div class="row">
+        <label>Button size</label>
+        <input type="range" min="32" max="64" value="44" step="1" id="btnSize" oninput="update()">
+        <span class="val" id="btnSizeVal">44px</span>
+      </div>
+      <div class="row">
+        <label>Border radius</label>
+        <input type="range" min="0" max="32" value="12" step="1" id="radius" oninput="update()">
+        <span class="val" id="radiusVal">12px</span>
+      </div>
+      <div class="row">
+        <label>Name font size</label>
+        <input type="range" min="11" max="22" value="14" step="1" id="fontSize" oninput="update()">
+        <span class="val" id="fontSizeVal">14px</span>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-label">Colors</div>
+      <div class="row">
+        <label>Card background</label>
+        <input type="color" id="cardBg" value="#ffffff" oninput="update()">
+        <span class="val" id="cardBgVal">#ffffff</span>
+      </div>
+      <div class="row">
+        <label>Card border</label>
+        <input type="color" id="cardBorder" value="#e0e0e0" oninput="update()">
+        <span class="val" id="cardBorderVal">#e0e0e0</span>
+      </div>
+      <div class="row">
+        <label>Button background</label>
+        <input type="color" id="btnBg" value="#ffffff" oninput="update()">
+        <span class="val" id="btnBgVal">#ffffff</span>
+      </div>
+      <div class="row">
+        <label>Button border</label>
+        <input type="color" id="btnBorder" value="#cccccc" oninput="update()">
+        <span class="val" id="btnBorderVal">#cccccc</span>
+      </div>
+      <div class="row">
+        <label>Icon color</label>
+        <input type="color" id="iconColor" value="#111111" oninput="update()">
+        <span class="val" id="iconColorVal">#111111</span>
+      </div>
+      <div class="row">
+        <label>Station name color</label>
+        <input type="color" id="nameColor" value="#111111" oninput="update()">
+        <span class="val" id="nameColorVal">#111111</span>
+      </div>
+      <div class="row">
+        <label>Subtitle color</label>
+        <input type="color" id="subColor" value="#888888" oninput="update()">
+        <span class="val" id="subColorVal">#888888</span>
+      </div>
+      <div class="row">
+        <label>Live dot color</label>
+        <input type="color" id="dotColor" value="#4caf50" oninput="update()">
+        <span class="val" id="dotColorVal">#4caf50</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FEATURE TOGGLES -->
+  <div class="card">
+    <div class="section-label" style="margin-top:0;">Features</div>
+    <div class="features-grid">
+
+      <!-- MVP: Dark mode -->
+      <div class="feature-row">
+        <div class="feature-info">
+          <div class="feature-name">Dark mode toggle</div>
+          <div class="feature-desc">Adds a light/dark switch to the player, independent of the site theme.</div>
+        </div>
+        <div class="feature-meta">
+          <span class="badge badge-mvp">MVP</span>
+          <div class="toggle-wrap">
+            <span class="toggle-label" id="lbl-darkmode">Off</span>
+            <label class="toggle">
+              <input type="checkbox" id="f-darkmode" onchange="update()">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- MVP: Volume slider -->
+      <div class="feature-row">
+        <div class="feature-info">
+          <div class="feature-name">Volume slider</div>
+          <div class="feature-desc">In-player volume control without touching system settings.</div>
+        </div>
+        <div class="feature-meta">
+          <span class="badge badge-mvp">MVP</span>
+          <div class="toggle-wrap">
+            <span class="toggle-label" id="lbl-volume">On</span>
+            <label class="toggle">
+              <input type="checkbox" id="f-volume" checked onchange="update()">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- MVP: Now playing -->
+      <div class="feature-row">
+        <div class="feature-info">
+          <div class="feature-name">Now playing metadata</div>
+          <div class="feature-desc">Shows current track/show title pulled live from your stream server.</div>
+        </div>
+        <div class="feature-meta">
+          <span class="badge badge-mvp">MVP</span>
+          <div class="toggle-wrap">
+            <span class="toggle-label" id="lbl-nowplaying">On</span>
+            <label class="toggle">
+              <input type="checkbox" id="f-nowplaying" checked onchange="update()">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- DORMANT: Persistent/pop-out -->
+      <div class="feature-row">
+        <div class="feature-info">
+          <div class="feature-name">Persistent player (pop-out)</div>
+          <div class="feature-desc">Audio keeps playing as listeners navigate between pages.</div>
+        </div>
+        <div class="feature-meta">
+          <span class="badge badge-dormant">Dormant</span>
+          <div class="toggle-wrap">
+            <span class="toggle-label" id="lbl-popout">Off</span>
+            <label class="toggle">
+              <input type="checkbox" id="f-popout" onchange="update()">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- DORMANT: Social share -->
+      <div class="feature-row">
+        <div class="feature-info">
+          <div class="feature-name">Social share button</div>
+          <div class="feature-desc">One-click share to Twitter/X, WhatsApp, or copy link.</div>
+        </div>
+        <div class="feature-meta">
+          <span class="badge badge-dormant">Dormant</span>
+          <div class="toggle-wrap">
+            <span class="toggle-label" id="lbl-share">Off</span>
+            <label class="toggle">
+              <input type="checkbox" id="f-share" onchange="update()">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- DORMANT: Autoplay -->
+      <div class="feature-row">
+        <div class="feature-info">
+          <div class="feature-name">Autoplay on page load</div>
+          <div class="feature-desc">Stream starts when visitor lands. Note: blocked on mobile by most browsers.</div>
+        </div>
+        <div class="feature-meta">
+          <span class="badge badge-dormant">Dormant</span>
+          <div class="toggle-wrap">
+            <span class="toggle-label" id="lbl-autoplay">Off</span>
+            <label class="toggle">
+              <input type="checkbox" id="f-autoplay" onchange="update()">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- DORMANT: Schedule -->
+      <div class="feature-row">
+        <div class="feature-info">
+          <div class="feature-name">On air schedule display</div>
+          <div class="feature-desc">Shows what's on now and what's coming next, pulled from your scheduler.</div>
+        </div>
+        <div class="feature-meta">
+          <span class="badge badge-dormant">Dormant</span>
+          <div class="toggle-wrap">
+            <span class="toggle-label" id="lbl-schedule">Off</span>
+            <label class="toggle">
+              <input type="checkbox" id="f-schedule" onchange="update()">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- DORMANT: Animation -->
+      <div class="feature-row">
+        <div class="feature-info">
+          <div class="feature-name">Play/pause animation</div>
+          <div class="feature-desc">Pulsing ring around the button while the stream is live. Pure CSS.</div>
+        </div>
+        <div class="feature-meta">
+          <span class="badge badge-dormant">Dormant</span>
+          <div class="toggle-wrap">
+            <span class="toggle-label" id="lbl-animation">Off</span>
+            <label class="toggle">
+              <input type="checkbox" id="f-animation" onchange="update()">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- GENERATED CODE -->
+  <div class="code-block">
+    <div class="code-header">
+      <span class="code-label">Generated embed code</span>
+      <button class="copy-btn" onclick="copyCode()">Copy code</button>
+    </div>
+    <pre id="codeOut"></pre>
+  </div>
+
+</div>
+
+<script>
+var playing = false;
+var pauseSVG = '<rect x="3" y="2" width="4" height="12" rx="1"/><rect x="9" y="2" width="4" height="12" rx="1"/>';
+var playSVG  = '<path d="M4 2.5l10 5.5-10 5.5V2.5z"/>';
+
+function g(id) { return document.getElementById(id); }
+function checked(id) { return g(id).checked; }
+
+function syncToggleLabels() {
+  var ids = ['darkmode','volume','nowplaying','popout','share','autoplay','schedule','animation'];
+  ids.forEach(function(id) {
+    g('lbl-' + id).textContent = checked('f-' + id) ? 'On' : 'Off';
+  });
+}
+
+function update() {
+  syncToggleLabels();
+
+  var w         = g('width').value;
+  var bs        = parseInt(g('btnSize').value);
+  var r         = g('radius').value;
+  var fs        = g('fontSize').value;
+  var cardBg    = g('cardBg').value;
+  var cardBd    = g('cardBorder').value;
+  var btnBg     = g('btnBg').value;
+  var btnBd     = g('btnBorder').value;
+  var iconCol   = g('iconColor').value;
+  var nameCol   = g('nameColor').value;
+  var subCol    = g('subColor').value;
+  var dotCol    = g('dotColor').value;
+  var name      = g('stationName').value || 'Your Radio Station';
+  var sub       = g('subtitle').value   || 'Live stream';
+
+  var fVolume    = checked('f-volume');
+  var fNowPlay   = checked('f-nowplaying');
+  var fDark      = checked('f-darkmode');
+  var fPopout    = checked('f-popout');
+  var fShare     = checked('f-share');
+  var fAutoplay  = checked('f-autoplay');
+  var fSchedule  = checked('f-schedule');
+  var fAnim      = checked('f-animation');
+
+  // update readouts
+  g('widthVal').textContent    = w + 'px';
+  g('btnSizeVal').textContent  = bs + 'px';
+  g('radiusVal').textContent   = r + 'px';
+  g('fontSizeVal').textContent = fs + 'px';
+  g('cardBgVal').textContent   = cardBg;
+  g('cardBorderVal').textContent = cardBd;
+  g('btnBgVal').textContent    = btnBg;
+  g('btnBorderVal').textContent = btnBd;
+  g('iconColorVal').textContent = iconCol;
+  g('nameColorVal').textContent = nameCol;
+  g('subColorVal').textContent  = subCol;
+  g('dotColorVal').textContent  = dotCol;
+
+  // update preview card
+  var card = g('playerCard');
+  card.style.maxWidth    = w + 'px';
+  card.style.width       = w + 'px';
+  card.style.background  = cardBg;
+  card.style.border      = '1px solid ' + cardBd;
+  card.style.borderRadius = r + 'px';
+
+  var btn = g('playBtn');
+  btn.style.width        = bs + 'px';
+  btn.style.height       = bs + 'px';
+  btn.style.borderRadius = Math.round(bs / 2) + 'px';
+  btn.style.background   = btnBg;
+  btn.style.borderColor  = btnBd;
+  btn.style.color        = iconCol;
+
+  var iconSize = Math.round(bs * 0.36);
+  var icon = g('playIcon');
+  icon.style.width  = iconSize + 'px';
+  icon.style.height = iconSize + 'px';
+  icon.style.fill   = iconCol;
+
+  g('labelEl').style.fontSize = fs + 'px';
+  g('labelEl').style.color    = nameCol;
+  g('labelEl').textContent    = name;
+  g('subEl').style.color      = subCol;
+  g('subEl').textContent      = sub;
+  g('dotEl').style.background = dotCol;
+
+  g('volumeRow').style.display    = fVolume   ? 'flex'  : 'none';
+  g('nowPlayingEl').style.display = fNowPlay  ? 'block' : 'none';
+  g('scheduleEl').style.display   = fSchedule ? 'block' : 'none';
+  g('nowPlayingEl').style.color   = subCol;
+  g('scheduleEl').style.color     = subCol;
+  g('volumeRow').querySelector('svg').style.fill   = subCol;
+  g('volumeRow').querySelector('svg').style.stroke = subCol;
+  card.style.alignItems = (fNowPlay || fSchedule) ? 'center' : 'center';
+
+  if (fAnim && playing) {
+    btn.classList.add('playing');
+  } else {
+    btn.classList.remove('playing');
+  }
+
+  generateCode({
+    w:w, bs:bs, r:r, fs:fs,
+    cardBg:cardBg, cardBd:cardBd,
+    btnBg:btnBg, btnBd:btnBd,
+    iconCol:iconCol, nameCol:nameCol,
+    subCol:subCol, dotCol:dotCol,
+    name:name, sub:sub,
+    url: g('streamUrl').value || 'YOUR_STREAM_URL',
+    fVolume:fVolume, fNowPlay:fNowPlay,
+    fDark:fDark, fPopout:fPopout,
+    fShare:fShare, fAutoplay:fAutoplay,
+    fSchedule:fSchedule, fAnim:fAnim
+  });
+}
+
+function generateCode(c) {
+  var iconSize  = Math.round(c.bs * 0.36);
+  var btnRadius = Math.round(c.bs / 2);
+  var lines = [];
+
+  lines.push('<audio id="rp"' + (c.fAutoplay ? ' autoplay' : '') + ' style="display:none">');
+  lines.push('  <source src="' + c.url + '" type="audio/mpeg">');
+  lines.push('</audio>');
+  lines.push('');
+
+  if (c.fAnim) {
+    lines.push('<style>');
+    lines.push('.rp-pulse { position:absolute; inset:-5px; border-radius:50%;');
+    lines.push('  border:2px solid ' + c.iconCol + '; opacity:0;');
+    lines.push('  animation:rpPulse 1.8s ease-out infinite; display:none; }');
+    lines.push('.rp-playing .rp-pulse { display:block; }');
+    lines.push('@keyframes rpPulse {');
+    lines.push('  0%   { transform:scale(0.85); opacity:0.6; }');
+    lines.push('  100% { transform:scale(1.35); opacity:0; } }');
+    lines.push('</style>');
+    lines.push('');
+  }
+
+  lines.push('<div id="rpWrap" style="');
+  lines.push('  display:flex; align-items:' + (c.fVolume || c.fNowPlay || c.fSchedule ? 'flex-start' : 'center') + '; gap:14px;');
+  lines.push('  padding:14px 18px; max-width:' + c.w + 'px;');
+  lines.push('  background:' + c.cardBg + '; border:1px solid ' + c.cardBd + ';');
+  lines.push('  border-radius:' + c.r + 'px; font-family:sans-serif">');
+  lines.push('');
+  lines.push('  <button id="rpBtn" onclick="rpToggle()"');
+  lines.push('    style="width:' + c.bs + 'px; height:' + c.bs + 'px;');
+  lines.push('    border-radius:' + btnRadius + 'px; background:' + c.btnBg + ';');
+  lines.push('    border:1.5px solid ' + c.btnBd + '; cursor:pointer;');
+  lines.push('    display:flex; align-items:center; justify-content:center;');
+  lines.push('    position:relative; flex-shrink:0; color:' + c.iconCol + '">');
+  if (c.fAnim) lines.push('    <span class="rp-pulse"></span>');
+  lines.push('    <svg id="rpIcon" width="' + iconSize + '" height="' + iconSize + '"');
+  lines.push('      viewBox="0 0 16 16" fill="' + c.iconCol + '" style="position:relative;z-index:1">');
+  lines.push('      <path d="M4 2.5l10 5.5-10 5.5V2.5z"/>');
+  lines.push('    </svg>');
+  lines.push('  </button>');
+  lines.push('');
+  lines.push('  <div style="flex:1;min-width:0">');
+  lines.push('    <div style="font-size:' + c.fs + 'px; font-weight:500; color:' + c.nameCol + '">' + c.name + '</div>');
+  lines.push('    <div style="display:flex; align-items:center; gap:5px; margin-top:3px">');
+  lines.push('      <span id="rpDot" style="width:6px; height:6px; border-radius:50%;');
+  lines.push('        background:' + c.subCol + '; flex-shrink:0"></span>');
+  lines.push('      <span style="font-size:12px; color:' + c.subCol + '">' + c.sub + '</span>');
+  lines.push('    </div>');
+  if (c.fNowPlay) {
+    lines.push('    <div id="rpNowPlaying" style="font-size:11px; color:' + c.subCol + ';');
+    lines.push('      margin-top:4px; opacity:0.7; white-space:nowrap;');
+    lines.push('      overflow:hidden; text-overflow:ellipsis; max-width:220px"></div>');
+  }
+  if (c.fSchedule) {
+    lines.push('    <div id="rpSchedule" style="font-size:11px; color:' + c.subCol + ';');
+    lines.push('      margin-top:4px; opacity:0.65">Next: Evening Show — 20:00</div>');
+  }
+  if (c.fDark) {
+    lines.push('    <div style="margin-top:8px">');
+    lines.push('      <button onclick="rpToggleDark()" id="rpDarkBtn"');
+    lines.push('        style="font-size:11px; background:none; border:0.5px solid ' + c.subCol + ';');
+    lines.push('        color:' + c.subCol + '; padding:3px 10px; border-radius:20px; cursor:pointer">');
+    lines.push('        Dark mode');
+    lines.push('      </button>');
+    lines.push('    </div>');
+  }
+  if (c.fShare) {
+    lines.push('    <div style="margin-top:8px; display:flex; gap:8px">');
+    lines.push('      <button onclick="rpShare(\'twitter\')" style="font-size:11px; background:none;');
+    lines.push('        border:0.5px solid ' + c.subCol + '; color:' + c.subCol + ';');
+    lines.push('        padding:3px 10px; border-radius:20px; cursor:pointer">X / Twitter</button>');
+    lines.push('      <button onclick="rpShare(\'copy\')" style="font-size:11px; background:none;');
+    lines.push('        border:0.5px solid ' + c.subCol + '; color:' + c.subCol + ';');
+    lines.push('        padding:3px 10px; border-radius:20px; cursor:pointer">Copy link</button>');
+    lines.push('    </div>');
+  }
+  if (c.fPopout) {
+    lines.push('    <div style="margin-top:8px">');
+    lines.push('      <button onclick="rpPopOut()" style="font-size:11px; background:none;');
+    lines.push('        border:0.5px solid ' + c.subCol + '; color:' + c.subCol + ';');
+    lines.push('        padding:3px 10px; border-radius:20px; cursor:pointer">Pop out player</button>');
+    lines.push('    </div>');
+  }
+  lines.push('  </div>');
+  if (c.fVolume) {
+    lines.push('  <div style="display:flex; align-items:center; gap:8px; flex-shrink:0">');
+    lines.push('    <svg width="14" height="14" viewBox="0 0 16 16"');
+    lines.push('      style="fill:' + c.subCol + '; opacity:0.5; flex-shrink:0">');
+    lines.push('      <path d="M2 5.5h2.5L8 2.5v11L4.5 10.5H2V5.5z"/>');
+    lines.push('      <path d="M10 4.5a4.5 4.5 0 010 7" stroke="' + c.subCol + '"');
+    lines.push('        stroke-width="1.2" fill="none" stroke-linecap="round"/>');
+    lines.push('      <path d="M11.5 6a2.5 2.5 0 010 4" stroke="' + c.subCol + '"');
+    lines.push('        stroke-width="1.2" fill="none" stroke-linecap="round"/>');
+    lines.push('    </svg>');
+    lines.push('    <input type="range" min="0" max="100" value="80"');
+    lines.push('      oninput="document.getElementById(\'rp\').volume=this.value/100"');
+    lines.push('      style="width:72px; accent-color:' + c.iconCol + '">');
+    lines.push('  </div>');
+  }
+  lines.push('</div>');
+  lines.push('');
+  lines.push('<script>');
+  lines.push('var rpPlaying = false;');
+  lines.push('function rpToggle() {');
+  lines.push('  var p = document.getElementById("rp");');
+  lines.push('  var icon = document.getElementById("rpIcon");');
+  lines.push('  var dot  = document.getElementById("rpDot");');
+  if (c.fAnim) lines.push('  var btn  = document.getElementById("rpBtn");');
+  lines.push('  if (!rpPlaying) {');
+  lines.push('    p.play(); rpPlaying = true;');
+  lines.push('    icon.innerHTML = \'<rect x="3" y="2" width="4" height="12" rx="1"/><rect x="9" y="2" width="4" height="12" rx="1"/>\';');
+  lines.push('    dot.style.background = "' + c.dotCol + '";');
+  if (c.fAnim) lines.push('    btn.classList.add("rp-playing");');
+  if (c.fNowPlay) {
+    lines.push('    fetchNowPlaying();');
+    lines.push('    rpNpInterval = setInterval(fetchNowPlaying, 15000);');
+  }
+  lines.push('  } else {');
+  lines.push('    p.pause(); p.src = ""; rpPlaying = false;');
+  lines.push('    icon.innerHTML = \'<path d="M4 2.5l10 5.5-10 5.5V2.5z"/>\';');
+  lines.push('    dot.style.background = "' + c.subCol + '";');
+  if (c.fAnim) lines.push('    btn.classList.remove("rp-playing");');
+  if (c.fNowPlay) lines.push('    clearInterval(rpNpInterval);');
+  lines.push('  }');
+  lines.push('}');
+  if (c.fNowPlay) {
+    lines.push('var rpNpInterval;');
+    lines.push('function fetchNowPlaying() {');
+    lines.push('  // Replace with your stream server\'s "now playing" API endpoint');
+    lines.push('  // e.g. fetch("https://yourhost:8000/status-json.xsl")');
+    lines.push('  //   .then(r => r.json()).then(d => {');
+    lines.push('  //     document.getElementById("rpNowPlaying").textContent = d.title;');
+    lines.push('  //   });');
+    lines.push('  document.getElementById("rpNowPlaying").textContent = "Now playing: Show / Track";');
+    lines.push('}');
+  }
+  if (c.fDark) {
+    lines.push('var rpDark = false;');
+    lines.push('function rpToggleDark() {');
+    lines.push('  rpDark = !rpDark;');
+    lines.push('  var w = document.getElementById("rpWrap");');
+    lines.push('  w.style.background = rpDark ? "#1a1a1a" : "' + c.cardBg + '";');
+    lines.push('  w.style.borderColor = rpDark ? "#333" : "' + c.cardBd + '";');
+    lines.push('  document.getElementById("rpDarkBtn").textContent = rpDark ? "Light mode" : "Dark mode";');
+    lines.push('}');
+  }
+  if (c.fShare) {
+    lines.push('function rpShare(type) {');
+    lines.push('  var url = window.location.href;');
+    lines.push('  if (type === "twitter") window.open("https://twitter.com/intent/tweet?url=" + encodeURIComponent(url) + "&text=' + encodeURIComponent('Listening live on ' + c.name) + '");');
+    lines.push('  if (type === "copy") { navigator.clipboard.writeText(url); alert("Link copied!"); }');
+    lines.push('}');
+  }
+  if (c.fPopout) {
+    lines.push('function rpPopOut() {');
+    lines.push('  window.open("' + c.url + '","rpPopout","width=380,height=180");');
+    lines.push('}');
+  }
+  lines.push('<\/script>');
+
+  g('codeOut').textContent = lines.join('\n');
+}
+
+function togglePlay() {
+  var audio = g('audio');
+  var icon  = g('playIcon');
+  var btn   = g('playBtn');
+  var fAnim = checked('f-animation');
+  if (!playing) {
+    audio.src = g('streamUrl').value || '';
+    audio.play();
+    playing = true;
+    icon.innerHTML = pauseSVG;
+    if (fAnim) btn.classList.add('playing');
+  } else {
+    audio.pause(); audio.src = '';
+    playing = false;
+    icon.innerHTML = playSVG;
+    btn.classList.remove('playing');
+  }
+}
+
+function setVol(v) { g('audio').volume = v / 100; }
+
+function copyCode() {
+  navigator.clipboard.writeText(g('codeOut').textContent).then(function() {
+    var btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy code'; }, 2000);
+  });
+}
+
+update();
+</script>
+</body>
+</html>
